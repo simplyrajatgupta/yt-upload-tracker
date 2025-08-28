@@ -1,11 +1,1 @@
-{
-  "uploads": [
-    {
-      "id": "demo-1",
-      "title": "Sample Video Title",
-      "date": "2025-08-25",
-      "viral": false,
-      "hidden": false
-    }
-  ]
-}
+{ "uploads": [] }
