@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>YouTube Upload Tracker — GitHub Sync</title>
+<style>
+  :root{
+    --bg:#0b0f14; --card:#121821; --muted:#9fb0c3; --text:#eaf2fb;
+    --acc1:#8E54E9; --acc2:#4776E6; --ok:#1db954; --warn:#ffb020; --bad:#ff5470;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto;
+       background: linear-gradient(135deg,var(--acc1),var(--acc2)); color:var(--text);}
+  .wrap{max-width:1100px; margin:40px auto; padding:16px}
+  .card{background:var(--card); border-radius:16px; padding:16px; box-shadow:0 6px 24px rgba(0,0,0,.25)}
+  h1{margin:0 0 8px; font-weight:700; font-size:clamp(20px,3.5vw,30px)}
+  .muted{color:var(--muted); font-size:14px}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  input, button, select{background:#0f1520; color:var(--text); border:1px solid #223046; border-radius:12px; padding:10px 12px; outline:none}
+  input::placeholder{color:#7f90a5}
+  button{cursor:pointer; font-weight:600; box-shadow:0 2px 0 rgba(0,0,0,.3)}
+  button.primary{background:linear-gradient(135deg,var(--acc1),var(--acc2)); border:none}
+  button.ghost{background:transparent; border:1px dashed #335070}
+  .pill{display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border-radius:999px; font-size:12px; border:1px solid #2a3b56}
+  .list{margin-top:14px; width:100%; overflow:auto}
+  table{width:100%; border-collapse:collapse; border-spacing:0; min-width:720px}
+  th, td{padding:10px 12px; border-bottom:1px solid #1c2738; text-align:left; font-size:14px}
+  tr:hover{background:#0f1520}
+  .tag{padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #2a3b56}
+  .ok{color:#0bd68a} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  .right{margin-left:auto}
+  .tiny{font-size:12px}
+  .hiddenRow{opacity:.55}
+  .chip{border:1px solid #2a3b56; padding:6px 10px; border-radius:999px; font-size:12px}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; background:#0f1520; border:1px solid #223046; border-radius:8px; padding:2px 6px}
+  .danger{border-color:#5d2030; background:#2a0f16}
+  .success{border-color:#17462d; background:#0f2018}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div>
+          <h1>🎬 YouTube Upload Tracker — GitHub Sync</h1>
+          <div class="muted">Real-time(ish) shared tracker via GitHub API. Auto-refresh every 10s.</div>
+        </div>
+        <span class="pill right"><strong>Status:</strong>&nbsp;<span id="status">Idle</span></span>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <label class="chip">Repo Owner <input id="owner" placeholder="your-username" style="margin-left:8px"/></label>
+        <label class="chip">Repo <input id="repo" placeholder="yt-upload-tracker" style="margin-left:8px"/></label>
+        <label class="chip">Branch <input id="branch" placeholder="main" value="main" style="margin-left:8px"/></label>
+        <label class="chip">Data Path <input id="path" placeholder="data.json" value="data.json" style="margin-left:8px"/></label>
+        <button id="saveCfg" class="ghost">Save Config</button>
+        <button id="clearCfg" class="ghost danger">Clear Config</button>
+        <button id="signout" class="ghost danger right">Sign out (clear token)</button>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <input id="token" type="password" placeholder="Paste GitHub fine-grained token (repo contents: read/write)" style="flex:1"/>
+        <button id="saveToken" class="primary">Save Token</button>
+        <button id="loadBtn">Load</button>
+        <button id="saveBtn">Save</button>
+        <button id="exportBtn">Export</button>
+        <span class="muted tiny right">Tip: Token is stored only in your browser’s localStorage.</span>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <input id="search" placeholder="Search title (case-insensitive, partial match)" style="flex:1"/>
+        <span class="pill">Rules: <span id="ruleState" class="warn">checking…</span></span>
+        <span class="pill">Count: <span id="count">0</span></span>
+        <span class="pill">Last upload: <span id="lastDate">—</span></span>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <input id="title" placeholder="Video title" style="flex:2"/>
+        <input id="date" type="date" style="flex:1"/>
+        <label class="pill"><input id="viral" type="checkbox" />&nbsp;☆ Viral</label>
+        <label class="pill"><input id="hidden" type="checkbox" />&nbsp;Hide</label>
+        <button id="add" class="primary">Add</button>
+      </div>
+
+      <div class="list">
+        <table id="table">
+          <thead>
+            <tr>
+              <th>#</th><th>Title</th><th>Date</th><th>☆</th><th>Hidden</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+const el = (id)=>document.getElementById(id);
+const fmtDate = (d)=> new Date(d).toISOString().slice(0,10);
+const tzToday = ()=>{
+  // Use local device date; no timezone trickery
+  return fmtDate(new Date());
+};
+
+// --- Storage for config & token ---
+const cfgKey = "yt_cfg";
+const tokKey = "gh_token";
+function loadCfg(){
+  const d = JSON.parse(localStorage.getItem(cfgKey) || "{}");
+  ["owner","repo","branch","path"].forEach(k=>{ if(d[k]) el(k).value = d[k]; });
+}
+function saveCfg(){
+  const d = { owner:el("owner").value.trim(), repo:el("repo").value.trim(),
+              branch:el("branch").value.trim()||"main", path:el("path").value.trim()||"data.json" };
+  localStorage.setItem(cfgKey, JSON.stringify(d));
+  setStatus("Config saved");
+}
+function clearCfg(){
+  localStorage.removeItem(cfgKey);
+  ["owner","repo","branch","path"].forEach(k=> el(k).value="");
+  setStatus("Config cleared");
+}
+function saveToken(){
+  const t = el("token").value.trim();
+  if(!t){ alert("Paste a GitHub token first."); return; }
+  localStorage.setItem(tokKey, t);
+  el("token").value = "";
+  setStatus("Token saved to this browser");
+}
+function signout(){
+  localStorage.removeItem(tokKey);
+  setStatus("Token cleared on this browser");
+}
+
+el("saveCfg").onclick = saveCfg;
+el("clearCfg").onclick = clearCfg;
+el("saveToken").onclick = saveToken;
+el("signout").onclick = signout;
+
+loadCfg();
+
+// --- App State ---
+let state = {
+  uploads: [], // {title, date(YYYY-MM-DD), viral(bool), hidden(bool), id:string}
+  sha: null    // Git blob sha required for updates
+};
+
+// --- GitHub API helpers ---
+function getHeaders(){
+  const token = localStorage.getItem(tokKey);
+  const h = { "Accept":"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28" };
+  if(token) h["Authorization"] = "token " + token;
+  return h;
+}
+function getCfg(){
+  const d = JSON.parse(localStorage.getItem(cfgKey) || "{}");
+  if(!d.owner || !d.repo){ throw new Error("Missing repo owner/repo. Save Config first."); }
+  d.branch = d.branch || "main";
+  d.path = d.path || "data.json";
+  return d;
+}
+
+async function ghGet(){
+  const {owner, repo, branch, path} = getCfg();
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
+  const res = await fetch(url, { headers: getHeaders() });
+  if(!res.ok){
+    const txt = await res.text();
+    throw new Error("GitHub GET failed: " + res.status + " " + txt);
+  }
+  const json = await res.json();
+  state.sha = json.sha;
+  const content = atob(json.content.replace(/\n/g,""));
+  const data = JSON.parse(content || '{"uploads":[]}');
+  if(!Array.isArray(data.uploads)) data.uploads = [];
+  state.uploads = data.uploads.map((x,i)=> ({ id: x.id || crypto.randomUUID(), ...x }));
+  render();
+  setStatus("Loaded");
+}
+
+async function ghPut(message="Update uploads"){
+  const {owner, repo, branch, path} = getCfg();
+  const bodyObj = {
+    message,
+    content: btoa(JSON.stringify({uploads: state.uploads}, null, 2)),
+    branch
+  };
+  if(state.sha) bodyObj.sha = state.sha;
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+  const res = await fetch(url, {
+    method:"PUT",
+    headers: { ...getHeaders(), "Content-Type":"application/json" },
+    body: JSON.stringify(bodyObj)
+  });
+  if(!res.ok){
+    const txt = await res.text();
+    throw new Error("GitHub PUT failed: " + res.status + " " + txt);
+  }
+  const json = await res.json();
+  state.sha = json.content && json.content.sha ? json.content.sha : null;
+  setStatus("Saved");
+}
+
+function setStatus(s){ el("status").textContent = s; }
+
+// --- UI logic ---
+function render(){
+  const q = el("search").value.trim().toLowerCase();
+  const list = state.uploads
+    .slice()
+    .sort((a,b)=> (a.date<b.date?1:-1)); // newest first
+  const rows = [];
+  let shown = 0;
+  let last = null;
+  for(let i=0;i<list.length;i++){
+    const u = list[i];
+    if(q && !u.title.toLowerCase().includes(q)) continue;
+    shown++;
+    if(!last || new Date(u.date)>new Date(last.date)) last = u;
+    rows.push(`<tr class="${u.hidden?'hiddenRow':''}">
+      <td>${i+1}</td>
+      <td>${escapeHtml(u.title)}</td>
+      <td>${u.date}</td>
+      <td>${u.viral?'☆':''}</td>
+      <td>${u.hidden?'Yes':'No'}</td>
+      <td>
+        <button class="ghost tiny" onclick="editRow('${u.id}')">Edit</button>
+        <button class="ghost tiny" onclick="toggleHide('${u.id}')">${u.hidden?'Unhide':'Hide'}</button>
+        <button class="ghost tiny danger" onclick="delRow('${u.id}')">Delete</button>
+      </td>
+    </tr>`);
+  }
+  el("tbody").innerHTML = rows.join("") || `<tr><td colspan="6" class="muted">No uploads yet.</td></tr>`;
+  el("count").textContent = String(shown);
+  el("lastDate").textContent = last ? last.date : "—";
+  checkRule(last);
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, (m)=> ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+
+function addRow(){
+  const title = el("title").value.trim();
+  const date = el("date").value || tzToday();
+  const viral = el("viral").checked;
+  const hidden = el("hidden").checked;
+  if(!title){ alert("Enter a title"); return; }
+  state.uploads.push({ id: crypto.randomUUID(), title, date, viral, hidden });
+  el("title").value = "";
+  el("viral").checked = false;
+  el("hidden").checked = false;
+  el("date").value = tzToday();
+  render();
+}
+
+function findById(id){ return state.uploads.find(u=>u.id===id); }
+
+function editRow(id){
+  const u = findById(id);
+  const title = prompt("Edit title", u.title);
+  if(title===null) return;
+  const date = prompt("Edit date (YYYY-MM-DD)", u.date);
+  if(date===null) return;
+  const viral = confirm("Mark as ☆ Viral? Ok = Yes / Cancel = No");
+  u.title = title.trim();
+  u.date = date || u.date;
+  u.viral = viral;
+  render();
+}
+
+function toggleHide(id){
+  const u = findById(id);
+  u.hidden = !u.hidden;
+  render();
+}
+
+function delRow(id){
+  if(!confirm("Delete this entry?")) return;
+  state.uploads = state.uploads.filter(u=>u.id!==id);
+  render();
+}
+
+async function onSave(){
+  try{
+    setStatus("Saving…");
+    await ghPut("Update uploads via web app");
+  }catch(e){
+    console.error(e);
+    alert(e.message);
+    setStatus("Save failed");
+  }
+}
+async function onLoad(){
+  try{
+    setStatus("Loading…");
+    await ghGet();
+  }catch(e){
+    console.error(e);
+    alert(e.message);
+    setStatus("Load failed");
+  }
+}
+
+el("add").onclick = addRow;
+el("saveBtn").onclick = onSave;
+el("loadBtn").onclick = onLoad;
+el("exportBtn").onclick = ()=>{
+  const count = state.uploads.length;
+  const today = new Date();
+  const dd = today.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric'})
+                    .replace(/ /g,'');
+  const fname = `ytupload_${dd}_${count}songs.json`;
+  const blob = new Blob([JSON.stringify({uploads:state.uploads},null,2)], {type:"application/json"});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+el("search").addEventListener("input", render);
+
+// Default date
+el("date").value = tzToday();
+
+// --- Rule: "8 days since last upload by tomorrow" ---
+function daysBetween(a,b){
+  const A = new Date(a), B = new Date(b);
+  const ms = Math.abs(B - A);
+  return Math.floor(ms / (1000*60*60*24));
+}
+function checkRule(last){
+  if(!last){ el("ruleState").textContent = "no uploads yet"; el("ruleState").className="bad"; return; }
+  const today = tzToday();
+  const tomorrow = fmtDate(new Date(Date.now()+24*60*60*1000));
+  const days = daysBetween(last.date, tomorrow);
+  const ruleOk = days <= 8;
+  el("ruleState").textContent = ruleOk ? `OK (last on ${last.date}, ${days} days by tomorrow)`
+                                       : `VIOLATION (last on ${last.date}, ${days} days by tomorrow)`;
+  el("ruleState").className = ruleOk ? "ok" : "bad";
+}
+
+// --- Auto refresh every 10s ---
+let timer = null;
+function startAutoRefresh(){
+  if(timer) clearInterval(timer);
+  timer = setInterval(async ()=>{
+    try{
+      await ghGet();
+      setStatus("Auto-refreshed");
+    }catch(e){
+      console.warn("Auto-refresh failed", e.message);
+    }
+  }, 10000);
+}
+startAutoRefresh();
+
+// Keyboard shortcuts
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="s" && (e.ctrlKey||e.metaKey)){ e.preventDefault(); onSave(); }
+});
+
+</script>
+</body>
+</html>
