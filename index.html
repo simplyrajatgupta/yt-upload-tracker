@@ -3,182 +3,161 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Upload Manager (GitHub Sync)</title>
+<title>Upload Manager (GitHub Token Connect)</title>
 <style>
-  :root{
-    --bg:#0b0f14;
-    --card:#121821;
-    --muted:#9fb0c3;
-    --text:#e7edf5;
-    --accent:#2d7dff;
-    --accent-ink:#ffffff;
-    --shadow: 0 10px 30px rgba(0,0,0,.45);
-  }
-  *{box-sizing:border-box}
-  body{margin:0; font-family: Inter, system-ui, sans-serif; background:#0a0e13; color:var(--text);}
-  .appbar{ position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:.75rem; padding:.9rem 1rem;
-    background: rgba(10,14,19,.9); backdrop-filter: blur(8px); border-bottom:1px solid rgba(255,255,255,.06);}
-  .search{ flex:1; display:flex; align-items:center; gap:.5rem; background: var(--card);
-    border:1px solid rgba(255,255,255,.06); padding:.6rem .75rem; border-radius:12px; box-shadow: var(--shadow);}
-  .search input{ flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:1rem; }
-  .pill{ font-size:.78rem; color:var(--muted); border:1px solid rgba(255,255,255,.08); padding:.25rem .5rem; border-radius:999px; }
-  .clearbtn { width:28px; height:28px; border-radius:50%; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
-    background:var(--accent); color:#fff; font-size:16px; font-weight:bold; }
-  .wrap{ max-width:820px; margin:0 auto; padding:12px 12px 120px;}
-  .list{ display:grid; gap:.5rem; }
-  .date-header{ padding:.4rem .25rem; font-weight:700; color:#cfe0f7; opacity:.9;}
-  .item{ display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:.6rem;
-    padding:.65rem .75rem; background: var(--card); border:1px solid rgba(255,255,255,.06); border-radius:14px;}
-  .title{ font-weight:600; word-break:break-word; }
-  .btn{ border:none; cursor:pointer; font-weight:600; padding:.5rem .7rem; border-radius:10px; background:#183660; color:#d7e6ff;
-    border:1px solid rgba(45,125,255,.35); transition:.15s;}
-  .btn:active{ transform:scale(.96) }
-  .btn.tomorrow{ background:linear-gradient(180deg,#2d7dff,#2368d6); color:var(--accent-ink); }
-  .btn.star{ background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer; }
-  .fab{ position:fixed; right:18px; bottom:80px; z-index:20; width:64px; height:64px; border-radius:50%; display:grid; place-items:center;
-    background:linear-gradient(180deg,#2d7dff,#1e5ccc); color:#fff; font-size:30px; font-weight:800;
-    box-shadow:0 12px 24px rgba(45,125,255,.45); }
-  .dialog-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; place-items:center; z-index:30;}
-  .dialog{ width:min(92vw,420px); background:#0f1520; border:1px solid rgba(255,255,255,.08);
-    border-radius:16px; padding:16px; }
-  .dialog h3{ margin:0 0 8px; }
-  .field{ display:flex; flex-direction:column; gap:6px; margin:8px 0 12px }
-  .input,.dateinput{ width:100%; padding:.7rem .8rem; border-radius:12px; background:#111927; color:var(--text);
-    border:1px solid rgba(255,255,255,.08);}
-  .actions{ display:flex; gap:.5rem; justify-content:flex-end; margin-top:8px }
-  .ghost{ background:transparent; border:1px solid rgba(255,255,255,.18); color:#cfe0f7 }
-  .primary{ background:linear-gradient(180deg,#2d7dff,#215fbe); color:#fff; border:1px solid rgba(255,255,255,.25) }
-  .empty{ opacity:.7; text-align:center; padding:32px 12px }
-  .footer { margin-top:40px; padding:14px; display:flex; flex-direction:column; align-items:center; gap:12px;
-    background: rgba(10,14,19,.85); border-top: 1px solid rgba(255,255,255,.08);}
-  .stats{ display:flex; gap:20px; flex-wrap:wrap; justify-content:center; font-size:.9rem; color:#cfe0f7; }
-  .hover-actions { display:none; gap:.4rem; }
-  .item.expanded .hover-actions { display:flex; }
-  .settings{padding:10px;background:#111927;border-bottom:1px solid rgba(255,255,255,.1);display:flex;flex-wrap:wrap;gap:6px;}
-  .settings input{padding:6px;border-radius:8px;border:1px solid #2a3b56;background:#0f1520;color:#fff;}
+  body{margin:0;font-family:sans-serif;background:#0a0e13;color:#fff;}
+  .appbar{padding:1rem;background:#121821;display:flex;gap:.5rem;align-items:center;}
+  .search{flex:1;display:flex;gap:.5rem;}
+  .search input{flex:1;padding:.5rem;border-radius:6px;border:none;}
+  .list{padding:1rem;display:grid;gap:.5rem;}
+  .item{padding:.5rem;border:1px solid #333;border-radius:8px;background:#1a1f2e;display:flex;justify-content:space-between;align-items:center;}
+  .fab{position:fixed;bottom:70px;right:20px;width:60px;height:60px;border-radius:50%;background:#2d7dff;color:#fff;font-size:30px;display:grid;place-items:center;cursor:pointer;}
+  .dialog-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;}
+  .dialog{background:#121821;padding:1rem;border-radius:10px;max-width:320px;width:90%;}
+  .dialog input{width:100%;padding:.5rem;margin:.3rem 0;border-radius:6px;border:none;}
+  .btn{padding:.5rem 1rem;border:none;border-radius:6px;cursor:pointer;margin:.2rem;}
+  .btn.primary{background:#2d7dff;color:#fff;}
+  .btn.ghost{background:#333;color:#fff;}
+  .footer{position:fixed;bottom:0;left:0;right:0;padding:.7rem;background:#121821;display:flex;gap:.5rem;align-items:center;}
+  .footer input{flex:1;padding:.5rem;border-radius:6px;border:none;}
+  .status{font-size:.9rem;margin-left:.5rem;}
+  .status.ok{color:#4ade80;} /* green */
+  .status.err{color:#f87171;} /* red */
 </style>
 </head>
 <body>
 
-<div class="settings">
-  <input id="owner" placeholder="Owner (username)">
-  <input id="repo" placeholder="Repo name">
-  <input id="branch" placeholder="Branch" value="main">
-  <input id="path" placeholder="Path" value="data.json">
-  <input id="token" placeholder="GitHub Token" type="password" style="flex:1">
-  <button class="btn primary" onclick="saveCfg()">Save Config</button>
-  <button class="btn ghost" onclick="clearCfg()">Clear</button>
-  <button class="btn ghost" onclick="loadFromGitHub()">Load</button>
-  <button class="btn ghost" onclick="saveToGitHub()">Save</button>
-</div>
-
 <div class="appbar">
-  <div class="search" style="flex:1">
-    <input id="searchInput" placeholder="Search by title or date">
-    <div class="pill" id="countPill">0</div>
-    <button class="clearbtn" id="clearBtn">✕</button>
+  <div class="search">
+    <input id="searchInput" placeholder="Search">
   </div>
+  <button id="loadBtn" class="btn ghost">Load</button>
+  <button id="saveBtn" class="btn primary">Save</button>
 </div>
 
-<div style="padding:0.5rem 1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
-  <button id="filterBtn" class="btn tomorrow" style="flex:1;">Filter: 7+ Days</button>
-  <button id="showHiddenBtn" class="btn tomorrow" style="flex:1;">Show Hidden</button>
-  <button id="viralBtn" class="btn" style="flex:1; background:linear-gradient(90deg,#8E54E9,#4776E6); color:#fff;">Show Viral</button>
-</div>
-
-<div class="wrap">
-  <div id="list" class="list"></div>
-  <div id="empty" class="empty" style="display:none">No songs yet. Tap the + button to add one.</div>
-</div>
-
-<button class="fab" id="addFab">+</button>
+<div class="list" id="list"></div>
+<div class="fab" id="addFab">+</div>
 
 <div class="dialog-backdrop" id="dialogBackdrop">
   <div class="dialog">
-    <h3 id="dialogTitle">Add Song</h3>
-    <div class="field">
-      <label>Title</label>
-      <input class="input" id="titleInput" list="titleSuggestions" placeholder="Song title">
-      <datalist id="titleSuggestions"></datalist>
-    </div>
-    <div class="field">
-      <label>Upload Date</label>
-      <input class="dateinput" id="dateInput" type="date">
-    </div>
-    <div class="actions">
+    <h3 id="dialogTitle">Add Upload</h3>
+    <input id="titleInput" placeholder="Title">
+    <input id="dateInput" type="date">
+    <div style="text-align:right">
       <button class="btn ghost" id="cancelBtn">Cancel</button>
-      <button class="btn primary" id="saveBtn">Save</button>
+      <button class="btn primary" id="saveDialogBtn">Save</button>
     </div>
   </div>
 </div>
 
 <div class="footer">
-  <div class="stats" id="stats"></div>
-  <div style="display:flex; gap:12px;">
-    <button class="btn" onclick="exportData()">Export</button>
-    <label class="btn">Import<input type="file" accept="application/json" style="display:none" onchange="importData(event)"></label>
-  </div>
+  <input id="tokenInput" placeholder="Paste GitHub Token">
+  <button id="connectBtn" class="btn primary">Connect</button>
+  <span id="statusMsg" class="status"></span>
 </div>
 
 <script>
-(function(){
-  // --- GitHub Config ---
-  const cfgKey="yt_cfg", tokKey="gh_token"; let state={sha:null};
-  function saveCfg(){
-    const d={owner:owner.value.trim(),repo:repo.value.trim(),branch:branch.value.trim(),path:path.value.trim()};
-    localStorage.setItem(cfgKey,JSON.stringify(d)); localStorage.setItem(tokKey,token.value.trim());
-    alert("Config saved");
-  }
-  function clearCfg(){localStorage.removeItem(cfgKey);localStorage.removeItem(tokKey);alert("Config cleared");}
-  function getCfg(){return JSON.parse(localStorage.getItem(cfgKey)||"{}");}
-  function getToken(){return localStorage.getItem(tokKey)||"";}
-  function headers(){return{"Accept":"application/vnd.github+json","Authorization":"token "+getToken(),"X-GitHub-Api-Version":"2022-11-28"};}
-  async function loadFromGitHub(){
-    const {owner,repo,branch,path}=getCfg();
-    const r=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`,{headers:headers()});
-    if(!r.ok){alert("Load failed");return;}
+// --- Fixed repo info ---
+const OWNER = "simplyrajatgupta";
+const REPO = "yt-upload-tracker";
+const BRANCH = "main";
+const PATH = "data.json";
+
+let TOKEN = null;
+let items = [];
+let editingId = null;
+let state = {sha:null};
+
+// Helpers
+function headers(){return {"Accept":"application/vnd.github+json","Authorization":"token "+TOKEN};}
+function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36);}
+function today(){return new Date().toISOString().slice(0,10);}
+
+async function testToken(){
+  const url=`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}?ref=${BRANCH}`;
+  try{
+    const r=await fetch(url,{headers:headers()});
+    if(!r.ok){throw new Error("Bad response");}
     const j=await r.json(); state.sha=j.sha;
-    const txt=atob(j.content.replace(/\n/g,"")); const data=JSON.parse(txt);
-    items=data.uploads||[]; render();
+    const txt=atob(j.content.replace(/\n/g,""));
+    const data=JSON.parse(txt);
+    items=data.uploads||[];
+    render();
+    setStatus("✅ Connected","ok");
+  }catch(e){
+    setStatus("❌ Invalid token","err");
   }
-  async function saveToGitHub(){
-    const {owner,repo,branch,path}=getCfg();
-    const body={message:"Update uploads",content:btoa(JSON.stringify({uploads:items},null,2)),sha:state.sha,branch};
-    const r=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{method:"PUT",headers:{...headers(),"Content-Type":"application/json"},body:JSON.stringify(body)});
-    if(!r.ok){alert("Save failed");return;}
-    const j=await r.json(); state.sha=j.content.sha; alert("Saved to GitHub");
-  }
+}
 
-  // --- Tracker Logic ---
-  let items=[]; let editingId=null; let filterActive=false,showHidden=false,viralOnly=false;
-  const listEl=document.getElementById('list'), emptyEl=document.getElementById('empty');
-  const searchInput=document.getElementById('searchInput'), countPill=document.getElementById('countPill');
-  const filterBtn=document.getElementById('filterBtn'), showHiddenBtn=document.getElementById('showHiddenBtn'), viralBtn=document.getElementById('viralBtn');
-  const statsEl=document.getElementById('stats'), titleSuggestions=document.getElementById('titleSuggestions');
-  function todayISO(){return new Date().toISOString().slice(0,10);}
-  function tomorrowISO(){let d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);}
-  function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36);}
-  function sortByDateDesc(a){return a.slice().sort((x,y)=>y.uploadDate.localeCompare(x.uploadDate));}
-  function updateSuggestions(){titleSuggestions.innerHTML="";[...new Set(items.map(i=>i.title))].forEach(t=>{let o=document.createElement("option");o.value=t;titleSuggestions.appendChild(o);});}
-  function formatDisplayDate(s){if(!s)return"";let d=new Date(s+"T00:00:00"),today=new Date();let diff=Math.round((today-d)/(1000*60*60*24));let label=d.toLocaleDateString(undefined,{day:'numeric',month:'long'});if(diff===0)return label+" (Today)";if(diff===1)return label+" (Yesterday)";return `${label} (${diff} days ago)`;}
-  function matchesQuery(it,q){if(it.isHidden&&!showHidden)return false;if(viralOnly&&!it.isViral)return false;if(!q&&!filterActive)return true;q=q.toLowerCase();let title=(it.title||"").toLowerCase();if(filterActive){let diff=(new Date()-new Date(it.uploadDate+"T00:00:00"))/(1000*60*60*24);if(diff<7)return false;}return title.includes(q)||(it.uploadDate||"").includes(q);}
-  function render(){let q=searchInput.value.trim();let data=sortByDateDesc(items).filter(it=>matchesQuery(it,q));listEl.innerHTML="";countPill.textContent=data.length;emptyEl.style.display=data.length?"none":"block";statsEl.innerHTML=`<div>Total: ${items.length}</div>`;let cur=null;for(const it of data){if(it.uploadDate!==cur){cur=it.uploadDate;let h=document.createElement("div");h.className="date-header";h.textContent=formatDisplayDate(cur);listEl.appendChild(h);}let row=document.createElement("div");row.className="item";let tl=document.createElement("div");tl.className="title";tl.textContent=it.title+(it.isViral?" ⭐":"")+(it.isHidden?" 🚫":"");let tmr=document.createElement("button");tmr.className="btn tomorrow";tmr.textContent="Tomorrow";tmr.onclick=e=>{e.stopPropagation();it.uploadDate=tomorrowISO();render();};let star=document.createElement("button");star.className="btn star";star.textContent="☆";star.onclick=e=>{e.stopPropagation();it.isViral=!it.isViral;render();};let hover=document.createElement("div");hover.className="hover-actions";let edit=document.createElement("button");edit.className="btn ghost";edit.textContent="✏️ Edit";edit.onclick=()=>openDialog("Edit",it);let hide=document.createElement("button");hide.className="btn ghost";hide.textContent=it.isHidden?"👀 Unhide":"🚫 Hide";hide.onclick=()=>{it.isHidden=!it.isHidden;render();};let del=document.createElement("button");del.className="btn ghost";del.textContent="🗑️ Delete";del.onclick=()=>{if(confirm("Delete?")){items=items.filter(x=>x.id!==it.id);render();}};hover.append(edit,hide,del);row.append(tl,tmr,star,hover);row.onclick=()=>row.classList.toggle("expanded");listEl.appendChild(row);}updateSuggestions();}
-  const backdrop=document.getElementById('dialogBackdrop');const titleInput=document.getElementById('titleInput');const dateInput=document.getElementById('dateInput');const cancelBtn=document.getElementById('cancelBtn');const saveBtn=document.getElementById('saveBtn');const dialogTitle=document.getElementById('dialogTitle');
-  function openDialog(mode,it){dialogTitle.textContent=mode;backdrop.style.display="grid";if(it){editingId=it.id;titleInput.value=it.title;dateInput.value=it.uploadDate;}else{editingId=null;titleInput.value="";dateInput.value=todayISO();}}
-  function closeDialog(){backdrop.style.display="none";}
-  cancelBtn.onclick=closeDialog;
-  saveBtn.onclick=()=>{let title=titleInput.value.trim(),date=(dateInput.value||todayISO()).slice(0,10);if(!title){alert("Enter title");return;}if(editingId){let it=items.find(x=>x.id===editingId);if(it){it.title=title;it.uploadDate=date;}}else{items.push({id:uid(),title,uploadDate:date,isHidden:false,isViral:false});}closeDialog();render();};
-  document.getElementById('addFab').onclick=()=>openDialog("Add Song");
-  searchInput.oninput=render;document.getElementById('clearBtn').onclick=()=>{searchInput.value='';render();};
-  filterBtn.onclick=()=>{filterActive=!filterActive;filterBtn.textContent=filterActive?"Filter: 7+ Days (ON)":"Filter: 7+ Days";render();};
-  showHiddenBtn.onclick=()=>{showHidden=!showHidden;showHiddenBtn.textContent=showHidden?"Show Hidden (ON)":"Show Hidden";render();};
-  viralBtn.onclick=()=>{viralOnly=!viralOnly;viralBtn.textContent=viralOnly?"Show Viral (ON)":"Show Viral";render();};
-
-  window.exportData=()=>{let dataStr=JSON.stringify(items,null,2);let blob=new Blob([dataStr],{type:"application/json"});let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ytupload.json";a.click();};
-  window.importData=(e)=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=x=>{try{let arr=JSON.parse(x.target.result);if(Array.isArray(arr)){arr.forEach(it=>{if(!items.some(i=>i.title.toLowerCase()===it.title.toLowerCase()))items.push(it);});render();}}catch(err){alert("Import failed");}};r.readAsText(f);};
-
+async function loadData(){
+  if(!TOKEN){alert("Enter token first");return;}
+  const url=`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}?ref=${BRANCH}`;
+  const r=await fetch(url,{headers:headers()});
+  if(!r.ok){alert("Load failed");return;}
+  const j=await r.json(); state.sha=j.sha;
+  const txt=atob(j.content.replace(/\n/g,""));
+  const data=JSON.parse(txt);
+  items=data.uploads||[];
   render();
-})();
+}
+
+async function saveData(){
+  if(!TOKEN){alert("Enter token first");return;}
+  const body={message:"Update uploads",content:btoa(JSON.stringify({uploads:items},null,2)),sha:state.sha,branch:BRANCH};
+  const url=`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}`;
+  const r=await fetch(url,{method:"PUT",headers:{...headers(),"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok){alert("Save failed");return;}
+  const j=await r.json(); state.sha=j.content.sha; alert("Saved!");
+}
+
+function render(){
+  const q=document.getElementById("searchInput").value.toLowerCase();
+  const list=document.getElementById("list");
+  list.innerHTML="";
+  items.filter(it=>!q||it.title.toLowerCase().includes(q)).forEach(it=>{
+    const div=document.createElement("div");
+    div.className="item";
+    div.innerHTML=`<span>${it.title} (${it.date})</span>
+      <div>
+        <button class="btn ghost" onclick="editItem('${it.id}')">Edit</button>
+        <button class="btn ghost" onclick="delItem('${it.id}')">Del</button>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function editItem(id){
+  const it=items.find(x=>x.id===id);
+  if(!it)return;
+  editingId=id;
+  document.getElementById("dialogTitle").textContent="Edit Upload";
+  document.getElementById("titleInput").value=it.title;
+  document.getElementById("dateInput").value=it.date;
+  backdrop.style.display="grid";
+}
+function delItem(id){items=items.filter(x=>x.id!==id);render();}
+
+// Dialog
+const backdrop=document.getElementById("dialogBackdrop");
+document.getElementById("addFab").onclick=()=>{editingId=null;document.getElementById("titleInput").value="";document.getElementById("dateInput").value=today();backdrop.style.display="grid";};
+document.getElementById("cancelBtn").onclick=()=>backdrop.style.display="none";
+document.getElementById("saveDialogBtn").onclick=()=>{
+  const title=document.getElementById("titleInput").value.trim();
+  const date=document.getElementById("dateInput").value||today();
+  if(!title)return alert("Enter title");
+  if(editingId){let it=items.find(x=>x.id===editingId);if(it){it.title=title;it.date=date;}}
+  else{items.push({id:uid(),title,date});}
+  backdrop.style.display="none";render();
+};
+
+// Status display
+function setStatus(msg,cls){const s=document.getElementById("statusMsg");s.textContent=msg;s.className="status "+cls;}
+
+// Hooks
+document.getElementById("searchInput").oninput=render;
+document.getElementById("loadBtn").onclick=loadData;
+document.getElementById("saveBtn").onclick=saveData;
+document.getElementById("connectBtn").onclick=()=>{TOKEN=document.getElementById("tokenInput").value.trim();testToken();};
 </script>
 </body>
 </html>
