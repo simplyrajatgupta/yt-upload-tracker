@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upload Manager</title>
+<style>
+  :root{
+    --bg:#0b0f14;
+    --card:#121821;
+    --muted:#9fb0c3;
+    --text:#e7edf5;
+    --accent:#2d7dff;
+    --accent-ink:#ffffff;
+    --ring: rgba(45,125,255,.35);
+    --shadow: 0 10px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%; max-width:100%; overflow-x:hidden;}
+  body{
+    margin:0; font-family: Inter, system-ui, sans-serif;
+    background:linear-gradient(180deg,#0a0e13,#0c131b 35%,#0e1621);
+    color:var(--text);
+  }
+  .appbar{ position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:.75rem; padding:.9rem 1rem;
+    background: rgba(10,14,19,.6); backdrop-filter: blur(8px); border-bottom:1px solid rgba(255,255,255,.06);}
+  .search{ flex:1; display:flex; align-items:center; gap:.5rem; background: var(--card);
+    border:1px solid rgba(255,255,255,.06); padding:.6rem .75rem; border-radius:12px; box-shadow: var(--shadow);}
+  .search input{ flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:1rem; }
+  .pill{ font-size:.78rem; color:var(--muted); border:1px solid rgba(255,255,255,.08); padding:.25rem .5rem; border-radius:999px; }
+  .clearbtn { width:28px; height:28px; border-radius:50%; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    background:var(--accent); color:#fff; font-size:16px; font-weight:bold; }
+  .wrap{ max-width:820px; margin:0 auto; padding:12px 12px 120px;}
+  .list{ display:grid; gap:.5rem; }
+  .date-header{ padding:.4rem .25rem; font-weight:700; color:#cfe0f7; opacity:.9;}
+  .item{ display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:.6rem;
+    padding:.65rem .75rem; background: var(--card); border:1px solid rgba(255,255,255,.06); border-radius:14px;}
+  .title{ font-weight:600; word-break:break-word; }
+  .btn{ border:none; cursor:pointer; font-weight:600; padding:.5rem .7rem; border-radius:10px; background:#183660; color:#d7e6ff;
+    border:1px solid rgba(45,125,255,.35); transition:.15s;}
+  .btn:active{ transform:scale(.96) }
+  .btn.tomorrow{ background:linear-gradient(180deg,#2d7dff,#2368d6); color:var(--accent-ink); }
+  .btn.star{ background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer; }
+  .fab{ position:fixed; right:18px; bottom:80px; z-index:20; width:64px; height:64px; border-radius:50%; display:grid; place-items:center;
+    background:linear-gradient(180deg,#2d7dff,#1e5ccc); color:#fff; font-size:30px; font-weight:800;
+    box-shadow:0 12px 24px rgba(45,125,255,.45); }
+  .dialog-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; place-items:center; z-index:30;}
+  .dialog{ width:min(92vw,420px); background:#0f1520; border:1px solid rgba(255,255,255,.08);
+    border-radius:16px; padding:16px; }
+  .dialog h3{ margin:0 0 8px; }
+  .field{ display:flex; flex-direction:column; gap:6px; margin:8px 0 12px }
+  .input,.dateinput{ width:100%; padding:.7rem .8rem; border-radius:12px; background:#111927; color:var(--text);
+    border:1px solid rgba(255,255,255,.08);}
+  .actions{ display:flex; gap:.5rem; justify-content:flex-end; margin-top:8px }
+  .ghost{ background:transparent; border:1px solid rgba(255,255,255,.18); color:#cfe0f7 }
+  .primary{ background:linear-gradient(180deg,#2d7dff,#215fbe); color:#fff; border:1px solid rgba(255,255,255,.25) }
+  .empty{ opacity:.7; text-align:center; padding:32px 12px }
+  .footer { margin-top:40px; padding:14px; display:flex; flex-direction:column; align-items:center; gap:12px;
+    background: rgba(10,14,19,.85); border-top: 1px solid rgba(255,255,255,.08);}
+  .stats{ display:flex; gap:20px; flex-wrap:wrap; justify-content:center; font-size:.9rem; color:#cfe0f7; }
+  .hover-actions { display:none; gap:.4rem; }
+  .item.expanded .hover-actions { display:flex; }
+  .copy-btn { background: linear-gradient(90deg,#07c,#2d7dff); color: #fff; padding:.45rem .6rem; border-radius:9px; border:none; }
+  .copy-btn:disabled { opacity:.5; cursor:not-allowed; }
+</style>
+</head>
+<body>
+  <div class="appbar">
+    <div class="search" style="flex:1">
+      <input id="searchInput" placeholder="Search by title or date">
+      <div class="pill" id="countPill">0</div>
+      <button class="clearbtn" id="clearBtn">✕</button>
+    </div>
+  </div>
+
+  <div style="padding:0.5rem 1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+    <button id="filterBtn" class="btn tomorrow" style="flex:1;">Filter: 7+ Days</button>
+    <button id="showHiddenBtn" class="btn tomorrow" style="flex:1;">Show Hidden</button>
+    <button id="viralBtn" class="btn" style="flex:1; background:linear-gradient(90deg,#8E54E9,#4776E6); color:#fff;">Show Viral</button>
+  </div>
+
+  <div style="padding:0.5rem 1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+    <button id="tipsBtn" class="btn tomorrow" style="flex:1;">Tips Music</button>
+    <button id="timesBtn" class="btn tomorrow" style="flex:1;">Times Music</button>
+  </div>
+
+  <div class="wrap">
+    <div id="list" class="list"></div>
+    <div id="empty" class="empty" style="display:none">No songs yet. Tap the + button to add one.</div>
+  </div>
+
+  <button class="fab" id="addFab">+</button>
+
+  <div class="dialog-backdrop" id="dialogBackdrop">
+    <div class="dialog">
+      <h3 id="dialogTitle">Add Song</h3>
+      <div class="field">
+        <label>Title</label>
+        <input class="input" id="titleInput" list="titleSuggestions" placeholder="Song title">
+        <datalist id="titleSuggestions"></datalist>
+      </div>
+      <div class="field">
+        <label>Upload Date</label>
+        <input class="dateinput" id="dateInput" type="date">
+      </div>
+      <div class="field">
+        <label>Link</label>
+        <input class="input" id="linkInput" placeholder="https://... (YouTube or share link)">
+      </div>
+      <div class="actions">
+        <button class="btn ghost" id="cancelBtn">Cancel</button>
+        <button class="btn primary" id="saveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="stats" id="stats"></div>
+    <div style="display:flex; gap:12px;">
+      <button class="btn" onclick="exportData()">Export</button>
+      <label class="btn">Import<input type="file" accept="application/json" style="display:none" onchange="importData(event)"></label>
+      <button class="btn" id="clearAllBtn" style="background:#e63946; color:white;">Clear</button>
+    </div>
+    <div style="margin-top:10px; font-size:0.9rem; color:#cfe0f7;">
+      Created by <a href="https://www.youtube.com/@RajatLFS" target="_blank" style="color:#2d7dff; text-decoration:none; font-weight:600;">Rajat LFS</a>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const KEY = 'uploadManagerData.v3';
+  let items = load();
+  let editingId = null;
+  let filterActive=false, showHidden=false, viralOnly=false;
+  let tipsFilter=false, timesFilter=false;
+  let backupItems = null;
+
+  const listEl=document.getElementById('list');
+  const emptyEl=document.getElementById('empty');
+  const searchInput=document.getElementById('searchInput');
+  const countPill=document.getElementById('countPill');
+  const clearBtn=document.getElementById('clearBtn');
+  const filterBtn=document.getElementById('filterBtn');
+  const showHiddenBtn=document.getElementById('showHiddenBtn');
+  const viralBtn=document.getElementById('viralBtn');
+  const tipsBtn=document.getElementById('tipsBtn');
+  const timesBtn=document.getElementById('timesBtn');
+  const statsEl=document.getElementById('stats');
+  const titleSuggestions=document.getElementById('titleSuggestions');
+  const clearAllBtn=document.getElementById('clearAllBtn');
+
+  function localISODate(d){ const dt=new Date(d.getTime()-d.getTimezoneOffset()*60000); return dt.toISOString().slice(0,10); }
+  function todayISO(){ return localISODate(new Date()); }
+  function tomorrowISO(){ const d=new Date(); d.setDate(d.getDate()+1); return localISODate(d); }
+  function save(){ localStorage.setItem(KEY, JSON.stringify(items)); }
+  function load(){ try{const raw=localStorage.getItem(KEY); return raw?JSON.parse(raw):[];}catch(e){return [];} }
+  function uid(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+  function sortByDateDesc(arr){ return arr.slice().sort((a,b)=> (b.uploadDate||'').localeCompare(a.uploadDate||'')); }
+
+  function updateSuggestions(){
+    titleSuggestions.innerHTML="";
+    const uniqueTitles=[...new Set(items.map(it=>it.title).filter(Boolean))];
+    uniqueTitles.forEach(t=>{
+      const opt=document.createElement("option");
+      opt.value=t;
+      titleSuggestions.appendChild(opt);
+    });
+  }
+
+  function formatDisplayDate(dateStr){
+    if(!dateStr) return '';
+    const d=new Date(dateStr+"T00:00:00"); const now=new Date();
+    const today=new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays=Math.round((today-d)/(1000*60*60*24));
+    const label=d.toLocaleDateString(undefined,{day:'numeric',month:'long'});
+    if(diffDays===0) return `${label} (Today)`;
+    if(diffDays===1) return `${label} (Yesterday)`;
+    if(diffDays<0) return `${label} (in ${Math.abs(diffDays)} days)`;
+    return `${label} (${diffDays} days ago)`;
+  }
+
+  function fuzzyMatch(text, query) {
+    text = (text || "").toLowerCase();
+    query = (query || "").toLowerCase();
+    let tIndex = 0;
+    for (let qChar of query) {
+      tIndex = text.indexOf(qChar, tIndex);
+      if (tIndex === -1) return false;
+      tIndex++;
+    }
+    return true;
+  }
+
+  function matchesQuery(it,q){
+    if(it.isHidden && !showHidden) return false;
+    if(viralOnly && !it.isViral) return false;
+    
+    // Apply Tips Music filter (exclude entries containing "times music")
+    if(tipsFilter){
+      const title=(it.title||'').toLowerCase();
+      if(title.includes('times music') || title.includes('time music')) return false;
+    }
+    
+    // Apply Times Music filter (only show entries containing "times music")
+    if(timesFilter){
+      const title=(it.title||'').toLowerCase();
+      if(!title.includes('times music') && !title.includes('time music')) return false;
+    }
+    
+    if(!q && !filterActive) return true;
+    q = q.toLowerCase().trim();
+    const title=(it.title||'').toLowerCase();
+    if(filterActive){
+      const d=new Date(it.uploadDate+"T00:00:00");
+      const diff=Math.floor((new Date()-d)/(1000*60*60*24));
+      if(diff<7) return false;
+    }
+    return (
+      title.includes(q) ||
+      (it.uploadDate||"").includes(q) ||
+      fuzzyMatch(title, q) ||
+      fuzzyMatch(it.uploadDate||"", q)
+    );
+  }
+
+  filterBtn.onclick=()=>{ filterActive=!filterActive; filterBtn.textContent=filterActive?"Filter: 7+ Days (ON)":"Filter: 7+ Days"; render(); }
+  showHiddenBtn.onclick=()=>{ showHidden=!showHidden; showHiddenBtn.textContent=showHidden?"Show Hidden (ON)":"Show Hidden"; render(); }
+  viralBtn.onclick=()=>{ viralOnly=!viralOnly; viralBtn.textContent=viralOnly?"Show Viral (ON)":"Show Viral"; render(); }
+  tipsBtn.onclick=()=>{ 
+    tipsFilter=!tipsFilter; 
+    if(tipsFilter) timesFilter=false; // Disable Times Music filter
+    tipsBtn.textContent=tipsFilter?"Tips Music (ON)":"Tips Music"; 
+    timesBtn.textContent="Times Music";
+    render(); 
+  }
+  timesBtn.onclick=()=>{ 
+    timesFilter=!timesFilter; 
+    if(timesFilter) tipsFilter=false; // Disable Tips Music filter
+    timesBtn.textContent=timesFilter?"Times Music (ON)":"Times Music"; 
+    tipsBtn.textContent="Tips Music";
+    render(); 
+  }
+
+  clearAllBtn.onclick = () => {
+    if (clearAllBtn.textContent === "Clear") {
+      if (confirm("Are you sure you want to clear all items?")) {
+        backupItems = JSON.parse(JSON.stringify(items));
+        items = [];
+        save();
+        render();
+        clearAllBtn.textContent = "Undo";
+        clearAllBtn.style.background = "#2d7dff";
+      }
+    } else {
+      if (backupItems && backupItems.length > 0) {
+        items = backupItems;
+        backupItems = null;
+        save();
+        render();
+        clearAllBtn.textContent = "Clear";
+        clearAllBtn.style.background = "#e63946";
+      }
+    }
+  };
+
+  function render(){
+    const q=searchInput.value.trim();
+    const data=sortByDateDesc(items).filter(it=>matchesQuery(it,q));
+    listEl.innerHTML=''; countPill.textContent=data.length;
+    emptyEl.style.display=data.length?"none":"block";
+
+    let today=new Date(); today=new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    let hiddenCount=0, viralCount=0, recentCount=0;
+    items.forEach(it=>{
+      if(it.isHidden) hiddenCount++;
+      if(it.isViral) viralCount++;
+      const diff=Math.floor((today-new Date(it.uploadDate+"T00:00:00"))/(1000*60*60*24));
+      if(diff<=7) recentCount++;
+    });
+    statsEl.innerHTML=`<div>Total: ${items.length}</div><div>Viral: ${viralCount}</div><div>Hidden: ${hiddenCount}</div><div>Last 7d: ${recentCount}</div>`;
+
+    let currentDate=null;
+    for(const it of data){
+      if(it.uploadDate!==currentDate){
+        currentDate=it.uploadDate;
+        const h=document.createElement('div'); h.className='date-header'; h.textContent=formatDisplayDate(currentDate); listEl.appendChild(h);
+      }
+      const row=document.createElement('div'); row.className='item';
+      const left=document.createElement('div'); left.style.display='flex'; left.style.flexDirection='column';
+      const tl=document.createElement('div'); tl.className='title';
+      tl.textContent = it.title + (it.isViral ? " ⭐" : "") + (it.isHidden ? " 🚫" : "");
+      left.appendChild(tl);
+
+      const tmr=document.createElement('button'); tmr.className='btn tomorrow'; tmr.textContent='Tomorrow';
+      tmr.onclick=(e)=>{ e.stopPropagation(); it.uploadDate=tomorrowISO(); save(); render(); };
+
+      // Copy button - placed after Tomorrow button
+      const copyBtn=document.createElement('button');
+      copyBtn.className='btn ghost';
+      copyBtn.innerHTML = '🔗';
+      if(!it.link) copyBtn.disabled = true;
+
+      copyBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const textToCopy = it.link || '';
+        if (!textToCopy) return;
+
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(textToCopy);
+            copyBtn.innerHTML = '✅';
+          } else {
+            throw new Error("Clipboard API not available");
+          }
+        } catch (err) {
+          const ta = document.createElement('textarea');
+          ta.value = textToCopy;
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand('copy');
+            copyBtn.innerHTML = '✅';
+          } catch {
+            alert("Copy not supported — please press Ctrl+C (or long-press → Copy on mobile).");
+          }
+          document.body.removeChild(ta);
+        }
+
+        const prev = copyBtn.innerHTML;
+        setTimeout(() => { copyBtn.innerHTML = prev; }, 2000);
+      };
+
+      const hoverActions=document.createElement('div'); hoverActions.className='hover-actions';
+
+      // Viral button moved to hover actions
+      const star=document.createElement('button'); star.className='btn ghost'; star.textContent='⭐ Viral';
+      star.onclick=(e)=>{ e.stopPropagation(); it.isViral=!it.isViral; save(); render(); };
+
+      const editBtn=document.createElement('button'); editBtn.className='btn ghost'; editBtn.textContent='✏️ Edit';
+      editBtn.onclick=(e)=>{ e.stopPropagation(); openDialog("Edit Song",it); };
+
+      const hideBtn=document.createElement('button'); hideBtn.className='btn ghost'; hideBtn.textContent=it.isHidden?'👀 Unhide':'🚫 Hide';
+      hideBtn.onclick=(e)=>{ e.stopPropagation(); it.isHidden=!it.isHidden; save(); render(); };
+
+      const delBtn=document.createElement('button'); delBtn.className='btn ghost'; delBtn.textContent='🗑️ Delete';
+      delBtn.onclick=(e)=>{ e.stopPropagation(); if(confirm("Delete this entry?")){ items=items.filter(x=>x.id!==it.id); save(); render(); }};
+
+      hoverActions.appendChild(star);
+      hoverActions.appendChild(editBtn);
+      hoverActions.appendChild(hideBtn);
+      hoverActions.appendChild(delBtn);
+
+      row.appendChild(left);
+      row.appendChild(tmr);
+      row.appendChild(copyBtn);
+      row.appendChild(hoverActions);
+      row.onclick=()=>{ row.classList.toggle("expanded"); };
+      listEl.appendChild(row);
+    }
+
+    updateSuggestions();
+  }
+
+  const backdrop=document.getElementById('dialogBackdrop');
+  const titleInput=document.getElementById('titleInput');
+  const dateInput=document.getElementById('dateInput');
+  const linkInput = document.getElementById('linkInput');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const dialogTitle = document.getElementById('dialogTitle');
+
+  function openDialog(mode, it) {
+    dialogTitle.textContent = mode;
+    backdrop.style.display = 'grid';
+    if (it) {
+      editingId = it.id;
+      titleInput.value = it.title || '';
+      dateInput.value = it.uploadDate || todayISO();
+      linkInput.value = it.link || '';
+    } else {
+      editingId = null;
+      titleInput.value = '';
+      dateInput.value = tomorrowISO();
+      linkInput.value = '';
+    }
+    setTimeout(() => titleInput.focus(), 50);
+  }
+
+  function closeDialog() {
+    backdrop.style.display = 'none';
+  }
+
+  cancelBtn.onclick = closeDialog;
+  document.getElementById('addFab').onclick = () => openDialog("Add Song");
+
+  saveBtn.onclick = () => {
+    const title = titleInput.value.trim();
+    const date = (dateInput.value || todayISO()).slice(0, 10);
+    const link = (linkInput.value || '').trim();
+
+    if (!title) {
+      alert("Enter a title");
+      return;
+    }
+
+    const exists = items.some(i => (i.title || '').toLowerCase() === title.toLowerCase() && i.id !== editingId);
+    if (exists) {
+      alert("This song already exists!");
+      return;
+    }
+
+    if (editingId) {
+      const it = items.find(x => x.id === editingId);
+      if (it) {
+        it.title = title;
+        it.uploadDate = date;
+        it.link = link;
+      }
+    } else {
+      items.push({ id: uid(), title, uploadDate: date, isHidden: false, isViral: false, link });
+    }
+    save();
+    closeDialog();
+    render();
+  };
+
+  searchInput.oninput = render;
+  clearBtn.onclick = () => { searchInput.value = ''; render(); };
+
+  window.exportData = () => {
+    const dataStr = JSON.stringify(items, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const month = monthNames[d.getMonth()];
+    const year = d.getFullYear();
+    const dateStr = `${day}${month}${year}`;
+
+    const count = items.length;
+    const filename = `ytupload_${dateStr}_${count}songs.json`;
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  window.importData = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = x => {
+      try {
+        const arr = JSON.parse(x.target.result);
+        if (Array.isArray(arr)) {
+          arr.forEach(it => {
+            const title = (it.title || '').toString().trim();
+            if (!title) return;
+
+            const uploadDate = (it.uploadDate || todayISO()).slice(0, 10);
+            const exists = items.some(i => (i.title || '').toLowerCase() === title.toLowerCase());
+
+            if (!exists) {
+              items.push({
+                id: uid(),
+                title,
+                uploadDate,
+                isHidden: !!it.isHidden,
+                isViral: !!it.isViral,
+                link: (it.link || '').toString()
+              });
+            } else {
+              // if exists, optionally update link if missing
+              const existing = items.find(i => (i.title || '').toLowerCase() === title.toLowerCase());
+              if (existing && !existing.link && it.link) existing.link = it.link;
+            }
+          });
+          save();
+          render(); // also refreshes suggestions
+        } else {
+          alert("Import failed: data is not an array");
+        }
+      } catch (err) {
+        alert("Import failed");
+      }
+    };
+    r.readAsText(f);
+  };
+
+  // Reset backupItems on page reload
+  window.addEventListener('beforeunload', function() {
+    if (backupItems !== null) {
+      clearAllBtn.textContent = "Clear";
+      clearAllBtn.style.background = "#e63946";
+      backupItems = null;
+    }
+  });
+
+  // Initial render + suggestions
+  render();
+})();
+</script>
+</body>
+</html>
